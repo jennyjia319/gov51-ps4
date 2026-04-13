@@ -4,5 +4,84 @@ author: "Jenny Jia"
 date: "2026-04-10"
 output: html_document
 ---
-GitHub Respository: https://github.com/jennyjia319/gov51-ps4.git
+GitHub Repository: https://github.com/jennyjia319/gov51-ps4.git
+# 1 Setup and Exploration
+## 1.1 Load packages and Data
 ```{r}
+library(tidyverse)
+library(estimatr)
+library(modelsummary)
+library(dplyr)
+card <- read.csv("data/card1995.csv") 
+```
+## 1.2 Describe the Data
+```{r}
+head(card) # check to see if csv loaded 
+nrow(card)
+ncol(card)
+```
+There are 3010 observations and 16 columns. The unit of observation is a worker in the US. 
+
+## 1.3 Distribution of Years of Education
+```{r}
+hist(card$educ, 
+     main = "Years of Education Among Workers",
+     xlab = "Years of Education",
+     ylab = "Number of Workers",
+     col = "lightpink",
+     xaxt = "n")
+
+axis(1, at = seq(0, 18, by = 2))
+mean(card$educ) # finding the mean
+```
+The distribution has a mean of 13.26346 years of education. There are two notable spikes, particularly around 12 years and 16 years. These are essentially the number of years it takes to complete high school and college, respectively, which tells us that there is a tendency to stop their education upon the completion of a degree. 
+
+## 1.4 The Naïve Relationship
+```{r}
+plot(card$educ, card$lwage,
+     main = "Log Weekly Wage and Years of Education",
+     xlab = "Years of Education",
+     ylab = "Log Weekly Wage",
+     col = "darkblue")
+
+abline(lm(lwage ~ educ, data = card), col = "lightblue")
+```
+Yes, more education appears to be positively associated with higher log weekly wages. The regression line has a positive slope, which represents that each additional year of education is associated with an increase in log weekly wage. 
+
+## 1.5 Why OLS Might Be Misleading 
+The problem with the scatter plot above and the positive association interpretation is that this is a naive estimate. Since there may be omitted variable bias, where more motivated or wealthier workers tend to get more education and earn higher wages, it makes it hard to isolate the causal effect of education on its own. 
+
+# 2 The Instrument: College Proximity
+## 2.1 What the Instrument Measures
+```{r}
+mean(card$nearc4) # this can tell us the proportion, since nearc4 is binary
+```
+68.20598% of respondents in this sample grew up near a 4-year college (where nearc4 = 1).
+
+## 2.2 Relevance: Does Proximity Affect Education?
+```{r}
+first_stage <- lm_robust(educ ~ nearc4 + black + smsa + south + # pasted from pset
+                           exper + expersq + married,
+                         data = card, se_type = "HC2")
+first_stage
+```
+The coefficient on nearc4 is 0.327111413, the standard error is 0.08055446, the t-value is 4.0607488. 
+Interpretation: Growing up near a 4-year college is associated with an average of 0.327111413 additional years of education, holding all other variables constant. I think this positive sign makes sense, since living near a college often means you're considered in-state, which lowers the cost tuition and commute, which thereby makes going to college more accessible.
+
+## 2.3 Checking Instrument Strength 
+The t-value on nearc4 was 4.0607488, so F = the square of that, so 16.489681. Because this value > 10, it suggests that the instrument is strong. It's important that it's strong because it means that nearc4 explains a significant amount of variation in education, giving us enough reason to estimate the causal effect. A weak instrument would produce less precise 2SLS estimates with larger standard errors, and could introduce more bias.
+
+## 2.4 Exclusion Restriction
+(a) What must be true is that, when education is controlled for, nearc4 as an instrument must have no direct effect on lwage. This means the only reason people who grew up near a college earn higher wages is because they obtained more education, and not because of anything else about living near a college.
+(b) An example of violation of the exclusion restriction is the fact that growing up near a college could be affected through socioeconomic status or university affiliation. Areas around colleges tend to attract more educated families, which means children could have grown up in a more elite and resource-abundant environment, which could boost wages without pursuing further education. 
+
+## 2.5 Balance Check 
+```{r}
+card |>
+  group_by(nearc4) |>
+  summarise(across(c(black, smsa, south), ~mean(.x, na.rm = TRUE)))
+```
+No, the groups are not balanced at all. Those who grew up near a college (nearc4 = 1) are less likely to be black (21.18850% vs 28.00418% for nearc4 = 0), are much more likely to live in a metropolitan area (82.222114% for vs 47.85789% for nearc4 = 0), and are less likely to live in the South (32.92742% vs 56.32184% for nearc4 = 0). This means that college proximity is not randomly-assigned, as it is correlated with all those variables. This means those variables could be confounders that cound affect both college proximity and wages, which means the instrument may violate the exclusion restriction. 
+
+# 3 The Wald Estimator
+## 3.1 Compute the Reduced Form
