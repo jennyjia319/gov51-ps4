@@ -85,3 +85,74 @@ No, the groups are not balanced at all. Those who grew up near a college (nearc4
 
 # 3 The Wald Estimator
 ## 3.1 Compute the Reduced Form
+```{r}
+reduced <- lm_robust(lwage ~ nearc4 + black + smsa + south + exper + expersq + married,
+                     data = card, se_type = "HC2")
+reduced
+```
+The coefficient on nearc4 is 0.040854001. In one sentence the interpretation is: Growing up versus not growing up near a four-year college is associated with a 4.0854001 percentage point increase in log weekly wages, holding all variables constant. This reduced form tells us how much wages change just from growing up near a college, without accounting for how much additional education the proximity caused. 
+
+## 3.2 Calculate the Ward Estimator by Hand
+Wald estimator formula: τ̂ = reduced form coefficient on nearc4 / first stage coefficient on nearc4
+= 0.040854001 / 0.327111413
+= 0.12489323018
+
+## 3.3 Interpret the Wald Estimator 
+One additional year of education caused by growing up near a college increases log weekly wages by 12.489323018 percentage points.
+
+# 4 OLS vs 2SLS
+## 4.1 OLS Estimate
+```{r}
+ols <- lm_robust(lwage ~ educ + black + smsa + south + # pasted from pset
+                   exper + expersq + married,
+                 data = card, se_type = "HC2")
+ols
+```
+The coefficient on educ is 0.071498271. Interpretation: one additional year of education is associated with a 7.1498271 percentage point increase in log weekly wages, holding all variables constant.
+
+## 4.2 2SLS Estimate
+```{r}
+iv <- iv_robust(lwage ~ educ + black + smsa + south + # pasted from pset
+                  exper + expersq + married |
+                  nearc4 + black + smsa + south +
+                  exper + expersq + married,
+                data = card, se_type = "HC2")
+iv
+```
+The 2SLS coefficient on educ is 0.124893231. Interpretation: One additional year of education CAUSES a 12.4893231 percentage point increase in log weekly wages. Yes, this number essentially matches my Ward estimate that I got earlier of 0.12489323018
+
+## 4.3 Side by Side Comparison
+```{r}
+modelsummary(list("OLS" = ols, "2SLS" = iv),
+             coef_map = c("educ" = "Years of Education"), # pasted from pset
+             gof_map = c("nobs", "r.squared"))
+```
+## 4.4 Why Do OLS and 2SLS Differ?
+(a) 2SLS is larger at 0.125 versus 0.071 for OLS.
+(b) First of all, years of education is self-reported, so respondents may not be accurately reporting them. This means the education variable contains noise, which means OLS is underestimating the true return on education. 2SLS avoids this because college proximity is correlated to how much education someone recieved, and not how accurately they reported it, which isolates the causal effect from confounders. 
+(c) The 2SLS estimate would be more credible as a causal estimate simply because it only uses variation in education that comes from proximity to a college, and not anything to do with their family background or other measurement errors. 
+
+## 4.5 Adding IQ As a Control
+```{r}
+ols_iq <- lm_robust(lwage ~ educ + IQ + black + smsa + south + exper + expersq + married, # (a) ols 
+                    data = card, se_type = "HC2")
+ols_iq
+
+iv_iq <- iv_robust(lwage ~ educ + IQ + black + smsa + south + exper + expersq + married | # (b) 2sls
+                   nearc4 + IQ + black + smsa + south + exper + expersq + married,
+                   data = card, se_type = "HC2")
+iv_iq
+```
+(a) The OLS coefficient on educ is 0.067568681 with IQ added, which is lower than 0.071498271 (no IQ). This tells us that there is slight mobility bias in the original estimate without IQ, so the estimated return on education was capturing differences in ability and not just the causal effect of education alone. 
+(b) The 2SLS coefficient on educ is 0.1093899302 with IQ added, which is lower than 0.124893231 (no IQ). It falls, but only modestly. This tells us that ability does not play a major role in biasing the iv estimate. 
+(c) When we add IQ to both OLS and 2SLS and both coefficients only decrease mildly, we take away that ability bias is not the main source of the gap between OLS and 2SLS. So, the difference might then be explained by measurement error (because education is self-reported). 
+
+# 5 Interpretation and LATE
+## 5.1 Who are the Compliers?
+The compliers are the respondents that pursued further education because they grew up near one, and they would not have pursued it if they didn't grow up near one (where nearc4 = 0). This would've been people that would have been impacted by the cost and logistics considerations of attending college, and were in-between attending college or not, college proximity being what made attending college possible. So, someone wealthy or motivated children would have attended college anyways, regardless of proximity, so those people would not count as a complier group. 
+
+## 5.2 Write the LATE interpretation
+Among workers whose years of schooling were influenced by whether they grew up proximate to a 4-year college, obtaining one additional year of education causally increases log weekly wages by 12.4893231 percentage points. 
+
+## 5.3 External Validity
+Building off my answer to 5.1, the compliers are people who were on the "cusp" of attending college, who only pursued more education because they happened to live close, and not that they would've gone regardless. We infer that there would be higher returns for this complier group, as the proximity provided them the boost necessary to pursue education. This means LATE is likely higher than ATE, because ATE would include the people that would have attended college regardless of where they lived and would have lower returns to additional education. 
