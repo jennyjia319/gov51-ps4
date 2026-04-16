@@ -2,7 +2,7 @@
 title: "ps4"
 author: "Jenny Jia"
 date: "2026-04-10"
-output: html_document
+output: pdf_document
 ---
 GitHub Repository: https://github.com/jennyjia319/gov51-ps4.git
 # 1 Setup and Exploration
@@ -93,7 +93,7 @@ reduced
 The coefficient on nearc4 is 0.040854001. In one sentence the interpretation is: Growing up versus not growing up near a four-year college is associated with a 4.0854001 percentage point increase in log weekly wages, holding all variables constant. This reduced form tells us how much wages change just from growing up near a college, without accounting for how much additional education the proximity caused. 
 
 ## 3.2 Calculate the Ward Estimator by Hand
-Wald estimator formula: τ̂ = reduced form coefficient on nearc4 / first stage coefficient on nearc4
+Wald estimator formula = reduced form coefficient on nearc4 / first stage coefficient on nearc4
 = 0.040854001 / 0.327111413
 = 0.12489323018
 
